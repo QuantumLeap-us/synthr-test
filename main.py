@@ -147,8 +147,10 @@ if __name__ == "__main__":
             )
             time.sleep(GENEREAL_SLEEP_TIMER)
 
-            # Cross chain swap, you need lz_value (to add more fees), to change chainID,
-            # please test via UI to get the rest of arguments correctly.
+             # Cross chain swap, you need lz_value (to add more fees), to change chainID,
+            random_swap_ammount = random.randint(int(30 * 1e18), int(100 * 1e18)) # randomized between 30 to 100
+            min_amount_percentage = 0.9996822 # slippage
+            min_amount = int(random_swap_ammount * (1 - min_amount_percentage)) # why u no know maths anon?
             build_and_send_transaction(
                 web3_client=web3,
                 contract_address=main_contract_address,
@@ -157,18 +159,17 @@ if __name__ == "__main__":
                 account_address=account_address,
                 private_key=private_key,
                 function_args=(
-                    "0x7355534400000000000000000000000000000000000000000000000000000000",  # sourceCurrencyKey
-                    int(100 * 1e18),  # sourceAmount
-                    "0x734d617469630000000000000000000000000000000000000000000000000000",  # destinationCurrencyKey
-                    int(1458171000000000000),  # minAmount
-                    "0x4c617965725a65726f0000000000000000000000000000000000000000000000",  # bridgeName
-                    0,  # destChainId
-                    False,  # erc20Payment
-                ),
+        "0x7355534400000000000000000000000000000000000000000000000000000000",  # sourceCurrencyKey
+         random_swap_ammount,  # sourceAmount
+        "0x7345544800000000000000000000000000000000000000000000000000000000",  # destinationCurrencyKey
+         min_amount,  # minAmount
+        "0x4c617965725a65726f0000000000000000000000000000000000000000000000",  # bridgeName
+        10106,  # destChainId
+        False,  # erc20Payment
+    ),
                 lz_value=LZ_VALUE,
             )
             time.sleep(GENEREAL_SLEEP_TIMER)
-
             # Same chain swap
             eth_usd_price_raw = read_function_from_contract(
                 web3_client=web3,
