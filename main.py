@@ -11,12 +11,19 @@ from utils.constants import LZ_VALUE, GENEREAL_SLEEP_TIMER
 
 ACTION_MULTIPLIER = 1000  # Make sure you have testnet gas! :)
 
-account_address = ""  # Input you wallet address here
-private_key = ""  # Input your private key here - If you like, don't use a fresh wallet 🛑
 url = "https://arbitrum-sepolia.blockpi.network/v1/rpc/public"  # you can change to another rpc if you like
 web3 = Web3(Web3.HTTPProvider(url))
 web3.eth.set_gas_price_strategy(rpc_gas_price_strategy)
 
+def read_accounts(file_path):
+    accounts = []
+    with open(file_path, 'r') as file:
+        lines = file.readlines()
+        for line in lines:
+            line = line.strip()
+            address, private_key = line.split(',')
+            accounts.append((Web3.to_checksum_address(address), private_key))
+    return accounts
 if __name__ == "__main__":
     # Check wallet balance in ETH
     main_contract_address = "0xe0875CBD144Fe66C015a95E5B2d2C15c3b612179"
@@ -27,19 +34,19 @@ if __name__ == "__main__":
     chainlink_abi = read_abi(f"./abis/{eth_usd_chainlink_feed}.json")
     bridge_abi = read_abi(f"./abis/{bridge_contract}.json")
 
+    accounts = read_accounts('accounts.txt')
+    current_account_index = 0
+
     running_total_diff = 0
     amount_to_swap = 10
     for c in range(ACTION_MULTIPLIER):
         try:
-            initial_balance = web3.from_wei(
-                web3.eth.get_balance(account_address), "ether"
-            )
+            account_address, private_key = accounts[current_account_index]
+            initial_balance = web3.from_wei(web3.eth.get_balance(account_address), "ether")
             logging.info(f"Wallet balance: {initial_balance} ETH")
 
             # Faucet action preparation
-            synthr_faucet_token_amount = int(
-                10 * 1e18 + random.randint(0, 100) * 1e18
-            )  # Faucet amount to extract
+            synthr_faucet_token_amount = int(10 * 1e18 + random.randint(0, 100) * 1e18)  # Faucet amount to extract
 
             # Synthr Faucet extract tokens
             abi = read_abi(f"./abis/{faucet_address}.json")
@@ -72,7 +79,7 @@ if __name__ == "__main__":
             # Deposit Synthr faucet tokens
             build_and_send_transaction(
                 web3_client=web3,
-                contract_address=main_contract_address,
+                contract_address=Web3.to_checksum_address(main_contract_address),
                 function_name="issueSynths",
                 abi=main_abi,
                 account_address=account_address,
@@ -89,9 +96,7 @@ if __name__ == "__main__":
             time.sleep(GENEREAL_SLEEP_TIMER)
 
             # Issue sUSD
-            issue_amount = int(1e18 * 10_000) + random.randint(
-                0, int(1e8)
-            )  # 10,000 sUSD + random amount
+            issue_amount = int(1e18 * 10_000) + random.randint(0, int(1e8))  # 10,000 sUSD + random amount
             build_and_send_transaction(
                 web3_client=web3,
                 contract_address=main_contract_address,
@@ -136,9 +141,7 @@ if __name__ == "__main__":
                 private_key=private_key,
                 function_args=(
                     "0x4545544800000000000000000000000000000000000000000000000000000000",
-                    int(
-                        issue_amount // 1e8
-                    ),  # Feel free to change it to any amount you want,
+                    int(issue_amount // 1e8),  # Feel free to change it to any amount you want,
                     # if you want to test liquidation functionality of the protocol.
                     "0x4c617965725a65726f0000000000000000000000000000000000000000000000",
                     0,
@@ -147,10 +150,10 @@ if __name__ == "__main__":
             )
             time.sleep(GENEREAL_SLEEP_TIMER)
 
-             # Cross chain swap, you need lz_value (to add more fees), to change chainID,
-            random_swap_ammount = random.randint(int(30 * 1e18), int(100 * 1e18)) # randomized between 30 to 100
-            min_amount_percentage = 0.9996822 # slippage
-            min_amount = int(random_swap_ammount * (1 - min_amount_percentage)) # why u no know maths anon?
+            # Cross chain swap, you need lz_value (to add more fees), to change chainID,
+            random_swap_ammount = random.randint(int(30 * 1e18), int(100 * 1e18))  # randomized between 30 to 100
+            min_amount_percentage = 0.9996822  # slippage
+            min_amount = int(random_swap_ammount * (1 - min_amount_percentage))  # why no know maths anon?
             build_and_send_transaction(
                 web3_client=web3,
                 contract_address=main_contract_address,
@@ -159,17 +162,18 @@ if __name__ == "__main__":
                 account_address=account_address,
                 private_key=private_key,
                 function_args=(
-        "0x7355534400000000000000000000000000000000000000000000000000000000",  # sourceCurrencyKey
-         random_swap_ammount,  # sourceAmount
-        "0x7345544800000000000000000000000000000000000000000000000000000000",  # destinationCurrencyKey
-         min_amount,  # minAmount
-        "0x4c617965725a65726f0000000000000000000000000000000000000000000000",  # bridgeName
-        10106,  # destChainId
-        False,  # erc20Payment
-    ),
+                    "0x7355534400000000000000000000000000000000000000000000000000000000",  # sourceCurrencyKey
+                    random_swap_ammount,  # sourceAmount
+                    "0x7345544800000000000000000000000000000000000000000000000000000000",  # destinationCurrencyKey
+                    min_amount,  # minAmount
+                    "0x4c617965725a65726f0000000000000000000000000000000000000000000000",  # bridgeName
+                    10106,  # destChainId
+                    False,  # erc20Payment
+                ),
                 lz_value=LZ_VALUE,
             )
             time.sleep(GENEREAL_SLEEP_TIMER)
+
             # Same chain swap
             eth_usd_price_raw = read_function_from_contract(
                 web3_client=web3,
@@ -177,9 +181,7 @@ if __name__ == "__main__":
                 function_name="latestAnswer",
                 abi=chainlink_abi,
             ).call()
-            eth_usd_price = (
-                int(eth_usd_price_raw) / 1e8 if eth_usd_price_raw != 0 else 0
-            )
+            eth_usd_price = int(eth_usd_price_raw) / 1e8 if eth_usd_price_raw != 0 else 0
             usd_eth_price = 0.003 / eth_usd_price
             # Calculate the minimum amount in sUSD
             min_amount_susd = int(0.97 * amount_to_swap * usd_eth_price * 1e18)
@@ -233,11 +235,15 @@ if __name__ == "__main__":
                 f"Difference from initial balance: {-diff} ETH, from {initial_balance} to {balance}"
             )
             logging.warning(f"Running total difference: {-running_total_diff} ETH")
-            # If no exception occurs, log the success message
-            logging.info("Actions completed successfully")
+
         except Exception as e:
             logging.error(f"An error occurred: {str(e)}")
             logging.info("Retrying the failed actions...")
-            continue  # Continue to the next iteration of the loop
+            # Move to the next account if the current account is out of gas
+            current_account_index = (current_account_index + 1) % len(accounts)
+        else:
+            # If no exception occurs, log the success message
+            logging.info("Actions completed successfully")
+            continue  # Move to the next iteration of the loop
 
         time.sleep(GENEREAL_SLEEP_TIMER)
