@@ -3,3 +3,5 @@ setuptools
 typing-extensions
 web3-6.15.1-py3-none-any.whl
 colorlog==6.8.2
+requests
+pathlib
